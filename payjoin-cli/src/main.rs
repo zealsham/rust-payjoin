@@ -15,42 +15,33 @@ mod db;
 compile_error!("At least one of the features ['v1', 'v2'] must be enabled");
 
 fn ensure_payjoin_dirs() -> std::io::Result<PathBuf> {
-    let home = dirs::home_dir().expect("Could not determine home directory");
-    let payjoin_dir = home.join(".payjoin");
-    let sender_dir = payjoin_dir.join("sender");
-    let receiver_dir = payjoin_dir.join("receiver");
-    fs::create_dir_all(&sender_dir)?;
-    fs::create_dir_all(&receiver_dir)?;
+    let mut home = dirs::home_dir().expect("Could not determine home directory");
+    home = home.join(".config");
+    let payjoin_dir = home.join("payjoin-cli");
+    std::fs::create_dir_all(&payjoin_dir)?;
+    // Set permissions to 0o700 on Unix systems
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&payjoin_dir, std::fs::Permissions::from_mode(0o700)).ok();
+    }
     Ok(payjoin_dir)
 }
 
-fn find_config_path(command: &cli::Commands) -> Option<PathBuf> {
+fn find_config_path() -> Option<PathBuf> {
+    // Look for a config.toml in the current working directory first 
+    //if not found, look for a config.toml in the .payjoin directory
     let cwd = std::env::current_dir().ok()?;
     let local_config = cwd.join("config.toml");
     if local_config.exists() {
         return Some(local_config);
     }
     let home = dirs::home_dir()?;
-    let payjoin_dir = home.join(".payjoin");
-    match command {
-        cli::Commands::Receive { .. } => {
-            let config_path = payjoin_dir.join("receiver").join("config.toml");
-            if config_path.exists() {
-                Some(config_path)
-            } else {
-                None
-            }
-        }
-        cli::Commands::Send { .. } => {
-            let config_path = payjoin_dir.join("sender").join("config.toml");
-            if config_path.exists() {
-                Some(config_path)
-            } else {
-                None
-            }
-        }
-        #[cfg(feature = "v2")]
-        cli::Commands::Resume => None,
+    let payjoin_config = home.join(".payjoin").join("config.toml");
+    if payjoin_config.exists() {
+        Some(payjoin_config)
+    } else {
+        None
     }
 }
 
@@ -58,10 +49,10 @@ fn find_config_path(command: &cli::Commands) -> Option<PathBuf> {
 async fn main() -> Result<()> {
     env_logger::init();
 
-    ensure_payjoin_dirs().expect("Failed to create ~/.payjoin directory structure");
+    ensure_payjoin_dirs().expect("Failed to create ~/.payjoin directory");
 
     let cli = Cli::parse();
-    let config_path = find_config_path(&cli.command);
+    let config_path = find_config_path();
     let config = Config::new(&cli, config_path)?;
 
     #[allow(clippy::if_same_then_else)]
