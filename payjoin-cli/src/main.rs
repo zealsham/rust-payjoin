@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -15,9 +14,8 @@ mod db;
 compile_error!("At least one of the features ['v1', 'v2'] must be enabled");
 
 fn ensure_payjoin_dirs() -> std::io::Result<PathBuf> {
-    let mut home = dirs::home_dir().expect("Could not determine home directory");
-    home = home.join(".config");
-    let payjoin_dir = home.join("payjoin-cli");
+    let config_dir = dirs::config_dir().expect("Could not determine home directory");
+    let payjoin_dir = config_dir.join("payjoin-cli");
     std::fs::create_dir_all(&payjoin_dir)?;
     // Set permissions to 0o700 on Unix systems
     #[cfg(unix)]
@@ -29,15 +27,15 @@ fn ensure_payjoin_dirs() -> std::io::Result<PathBuf> {
 }
 
 fn find_config_path() -> Option<PathBuf> {
-    // Look for a config.toml in the current working directory first 
-    //if not found, look for a config.toml in the .payjoin directory
+    // Look for a config.toml in the current working directory first
+    //if not found, look for a config.toml in .config/payjoin-cli directory
     let cwd = std::env::current_dir().ok()?;
     let local_config = cwd.join("config.toml");
     if local_config.exists() {
         return Some(local_config);
     }
-    let home = dirs::home_dir()?;
-    let payjoin_config = home.join(".payjoin").join("config.toml");
+    let config_dir = dirs::config_dir()?;
+    let payjoin_config = config_dir.join(".payjoin-cli").join("config.toml");
     if payjoin_config.exists() {
         Some(payjoin_config)
     } else {
