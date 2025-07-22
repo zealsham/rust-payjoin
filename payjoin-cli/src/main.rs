@@ -10,12 +10,14 @@ mod app;
 mod cli;
 mod db;
 
+const PAYJOIN_CONFIG_DIR: &str = "payjoin-cli";
+
 #[cfg(not(any(feature = "v1", feature = "v2")))]
 compile_error!("At least one of the features ['v1', 'v2'] must be enabled");
 
-fn ensure_payjoin_dirs() -> std::io::Result<PathBuf> {
-    let config_dir = dirs::config_dir().expect("Could not determine home directory");
-    let payjoin_dir = config_dir.join("payjoin-cli");
+fn ensure_config_dirs() -> std::io::Result<PathBuf> {
+    let config_dir = dirs::config_dir().expect("Could not determine config directory");
+    let payjoin_dir = config_dir.join(PAYJOIN_CONFIG_DIR);
     std::fs::create_dir_all(&payjoin_dir)?;
     // Set permissions to 0o700 on Unix systems
     #[cfg(unix)]
@@ -35,7 +37,7 @@ fn find_config_path() -> Option<PathBuf> {
         return Some(local_config);
     }
     let config_dir = dirs::config_dir()?;
-    let payjoin_config = config_dir.join(".payjoin-cli").join("config.toml");
+    let payjoin_config = config_dir.join(PAYJOIN_CONFIG_DIR).join("config.toml");
     if payjoin_config.exists() {
         Some(payjoin_config)
     } else {
@@ -47,7 +49,7 @@ fn find_config_path() -> Option<PathBuf> {
 async fn main() -> Result<()> {
     env_logger::init();
 
-    ensure_payjoin_dirs().expect("Failed to create ~/.payjoin directory");
+    ensure_config_dirs().expect("Failed to create payjoin-cli configuration directory");
 
     let cli = Cli::parse();
     let config_path = find_config_path();
